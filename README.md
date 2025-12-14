@@ -9,7 +9,7 @@ Command-line explorer for the documentation included with Xcode. `xcdoc` lets yo
 - Xcode 15 or later
 
 The Xcode version used by `xcdoc` is determined by `xcode-select -p`.
-You can change it with `xcode-select -s path/to/Xcode.app`, or override by setting the `DEVELOPER_DIR` environment variable when running the command:
+You can change it with `xcode-select -s path/to/Xcode.app`, or override it by setting the `DEVELOPER_DIR` environment variable when running a command:
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode-26.0.0.app/Contents/Developer xcdoc search liquid glass
@@ -31,29 +31,34 @@ mint install akkyie/xcdoc
 ```
 
 ## Usage
-```bash
-xcdoc <command> [options]
-```
 
 ### List categories
 Shows the documentation hierarchy.
 ```bash
-xcdoc list
+$ xcdoc list
 ```
 
 ### Search keywords
-Full-text search across Swift, Objective-C, and other generic documents using the offline index files.
+Full-text search across Swift, Objective-C, and other documents (REST APIs, JS frameworks, etc.) using the offline index files.
 
 ```bash
-xcdoc search String
-xcdoc search --swift View
-xcdoc search app life cycle
+$ xcdoc search String
+
+# You can filter by a language (--swift, --objc, --other)
+$ xcdoc search --swift View
+
+# You can pass multiple keywords, including symbols
+$ xcdoc search String +
+$ xcdoc search app life cycle
 ```
 
 ### Show an article as Markdown
 Accepts a documentation path found via `xcdoc list` or `xcdoc search`.
 ```bash
-xcdoc show /documentation/uikit/uiview
+$ xcdoc show /documentation/uikit/uiview
+
+# You can specify the language to show (--swift, --objc, --other)
+$ xcdoc show --objc /documentation/uikit/uiview
 ```
 
 ## Development
@@ -64,7 +69,7 @@ xcdoc show /documentation/uikit/uiview
 ## Disclaimer
 
 - `xcdoc` runs locally against the documentation files already installed with your copy of Xcode; it does not ship or redistribute any Apple documentation or data files.
-- Implementation is based solely on observing on-disk data layouts and using published SwiftDocC APIs; no Apple executables are reverse-engineered.
+- Implementation is based solely on observations of on-disk data layouts and published SwiftDocC APIs; no Apple executables are reverse-engineered.
 - Generated Markdown is for personal/internal use only; do not republish Apple documentation extracted with this tool. Ensure your usage complies with Apple’s terms and applicable laws.
 - This project is an independent open-source tool and is not authorized, sponsored, or otherwise approved by Apple Inc.
 - Swift®, Xcode®, and macOS® are trademarks of Apple Inc.
