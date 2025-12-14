@@ -14,10 +14,10 @@ struct ShowCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Show Swift documentation")
     var swift: Bool = false
 
-    @Flag(name: .long, help: "Show Objective-C documentation")
+    @Flag(name: [.long, .customLong("objective-c")], help: "Show Objective-C documentation")
     var objc: Bool = false
 
-    @Flag(name: [.customLong("other"), .customLong("data")], help: "Show other (data) documentation")
+    @Flag(name: [.long, .customLong("data")], help: "Show other (data) documentation")
     var other: Bool = false
 
     func run() async throws {
