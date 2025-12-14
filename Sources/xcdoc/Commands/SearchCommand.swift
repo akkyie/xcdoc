@@ -13,10 +13,10 @@ struct SearchCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Filter to Swift documentation only")
     var swift: Bool = false
 
-    @Flag(name: .long, help: "Filter to Objective-C documentation only")
+    @Flag(name: [.long, .customLong("objective-c")], help: "Filter to Objective-C documentation only")
     var objc: Bool = false
 
-    @Flag(name: [.customLong("other"), .customLong("data")], help: "Filter to other (data) documentation only")
+    @Flag(name: [.long, .customLong("data")], help: "Filter to other (data) documentation only")
     var other: Bool = false
 
     @Option(name: [.short, .long], help: "Maximum number of results")
