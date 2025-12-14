@@ -18,6 +18,7 @@ struct SearchTestCase: CustomTestStringConvertible, Sendable {
 
 @Suite
 struct SearchCommandTests {
+    // Results captured with Xcode 26.1.1
     static let testCases: [SearchTestCase] = [
         SearchTestCase(
             args: "UIView --swift",
@@ -79,9 +80,25 @@ struct SearchCommandTests {
             [objc] Working with the watchOS app life cycle (Article - WatchKit) /documentation/watchkit/working-with-the-watchos-app-life-cycle
             """
         ),
+        SearchTestCase(
+            args: "--swift String +",
+            expected: """
+            [swift] +(_:_:) (Operator - Swift) /documentation/swift/string/+(_:_:)
+            [swift] +=(_:_:) (Operator - Swift) /documentation/swift/string/+=(_:_:)
+            [swift] +(_:_:) (Operator - Swift) /documentation/swift/string/+(_:_:)-n329
+            [swift] +(_:_:) (Operator - Swift) /documentation/swift/string/+(_:_:)-6h59y
+            [swift] +(_:_:) (Operator - Swift) /documentation/swift/string/+(_:_:)-9fm57
+            """
+        ),
     ]
 
     static var xcdocPath: String {
+        if let testBundlePath = ProcessInfo.processInfo.environment["XCTestBundlePath"] {
+            return URL(fileURLWithPath: testBundlePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("xcdoc").path
+        }
+
         let packageDir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -94,7 +111,7 @@ struct SearchCommandTests {
         let result = try await Subprocess.run(
             .path(FilePath(Self.xcdocPath)),
             arguments: Arguments(testCase.fullArguments),
-            output: .string(limit: 1024 * 1024)
+            output: .string(limit: 1024)
         )
 
         let output = result.standardOutput ?? ""
