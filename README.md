@@ -27,7 +27,7 @@ cp .build/release/xcdoc /usr/local/bin # or anywhere in the $PATH
 
 ### [Mint](https://github.com/yonaskolb/Mint)
 ```bash
-mint install akkyie/xcdoc@main
+mint install akkyie/xcdoc@0.1.0
 ```
 
 ## Usage
