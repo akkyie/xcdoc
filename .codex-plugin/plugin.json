@@ -1,6 +1,6 @@
 {
   "name": "xcdoc",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Search and read Apple's official documentation offline using the xcdoc CLI",
   "author": "Akio Yasui",
   "homepage": "https://github.com/akkyie/xcdoc",
