@@ -31,6 +31,30 @@ cp .build/release/xcdoc /usr/local/bin # or anywhere in the $PATH
 mint install akkyie/xcdoc
 ```
 
+## Coding Agent Plugin
+
+This repository doubles as a plugin that teaches coding agents how to use `xcdoc`. The `xcdoc` binary itself must be installed separately (see above); the plugin only ships the instructions.
+
+### Claude Code
+```
+/plugin marketplace add akkyie/xcdoc
+/plugin install xcdoc@xcdoc
+```
+
+### Codex CLI
+```
+codex plugin marketplace add akkyie/xcdoc
+codex plugin add xcdoc@xcdoc
+```
+
+Both tools share the same skill defined in [`skills/xcdoc/SKILL.md`](skills/xcdoc/SKILL.md), which tells the agent to reach for `xcdoc` when it needs Apple documentation — including using `xcdoc show "<url>"` instead of fetching a `developer.apple.com/documentation/...` page from the web.
+
+### WebFetch interception (Claude Code)
+
+The Claude Code plugin also installs a `PreToolUse` hook ([`hooks/xcdoc-intercept.sh`](hooks/xcdoc-intercept.sh)) that catches any `WebFetch` of a `developer.apple.com/documentation/...` URL and redirects the agent to run `xcdoc show "<url>"` instead. Unlike the skill (which is advisory), the hook is deterministic.
+
+It fails open: the fetch is only blocked when `xcdoc` is on `PATH`, so nothing breaks on machines without `xcdoc` installed. Codex relies on the skill instructions alone; it does not get this hook.
+
 ## Usage
 
 ### List categories

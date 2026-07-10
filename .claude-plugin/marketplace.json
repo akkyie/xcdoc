@@ -1,0 +1,13 @@
+{
+  "name": "xcdoc",
+  "owner": {
+    "name": "Akio Yasui"
+  },
+  "plugins": [
+    {
+      "name": "xcdoc",
+      "source": "./",
+      "description": "Search and read Apple's official documentation offline using the xcdoc CLI"
+    }
+  ]
+}
