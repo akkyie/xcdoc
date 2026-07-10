@@ -42,6 +42,8 @@ final class CacheDB {
     private func ensureOpen() throws {
         if db != nil { return }
         guard sqlite3_open_v2(path.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            sqlite3_close(db)
+            db = nil
             throw CacheDBError.openFailed(path: path.path)
         }
         let query = "SELECT data_id, offset, length FROM refs WHERE uuid = ?"

@@ -93,13 +93,17 @@ struct ShowCommand: AsyncParsableCommand {
         }
 
         let refs = try cacheDB.fetchChunkReferences(uuids: uuids)
+        var lastError: Error?
         for uuid in uuids {
+            guard let ref = refs[uuid.rawValue] else { continue }
             do {
-                guard let ref = refs[uuid.rawValue] else { continue }
                 return try await fileChunkStore.extractRenderNode(ref: ref, uuid: uuid.rawValue)
             } catch {
-                continue
+                lastError = error
             }
+        }
+        if let lastError {
+            throw lastError
         }
         throw ShowCommandError.notFound(input: path, normalized: normalizedPath)
     }
