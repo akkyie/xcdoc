@@ -1,0 +1,137 @@
+name: Release
+
+run-name: Release ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (for example, 1.2.3)
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    environment: Release
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Validate release request
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use X.Y.Z format: $VERSION" >&2
+            exit 1
+          fi
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Run this workflow from the main branch." >&2
+            exit 1
+          fi
+
+          if release_response=$(gh api --include "repos/$GITHUB_REPOSITORY/releases/tags/$VERSION" 2>&1); then
+            echo "Release $VERSION already exists." >&2
+            exit 1
+          fi
+
+          release_status=""
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^HTTP/[^[:space:]]+[[:space:]]+([0-9]{3}) ]]; then
+              release_status="${BASH_REMATCH[1]}"
+            fi
+          done <<< "$release_response"
+
+          if [[ "$release_status" != "404" ]]; then
+            echo "$release_response" >&2
+            echo "Failed to check whether release $VERSION exists." >&2
+            exit 1
+          fi
+
+          git fetch origin --tags
+
+          if git show-ref --verify --quiet "refs/tags/$VERSION"; then
+            if ! git merge-base --is-ancestor "$VERSION" origin/main; then
+              echo "Tag $VERSION is not part of the main branch." >&2
+              exit 1
+            fi
+
+            claude_version=$(git show "$VERSION:.claude-plugin/plugin.json" | jq -r '.version')
+            codex_version=$(git show "$VERSION:.codex-plugin/plugin.json" | jq -r '.version')
+
+            if [[ "$claude_version" != "$VERSION" || "$codex_version" != "$VERSION" ]]; then
+              echo "Tag $VERSION does not contain matching plugin versions." >&2
+              exit 1
+            fi
+
+            git checkout --detach "$VERSION"
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+              echo "The selected revision is not the latest commit on main." >&2
+              exit 1
+            fi
+
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update plugin versions
+        if: steps.release.outputs.tag_exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
+            temporary_file=$(mktemp -p "$TMPDIR")
+            jq --arg version "$VERSION" '.version = $version' "$manifest" > "$temporary_file"
+            mv "$temporary_file" "$manifest"
+          done
+
+          claude_version=$(jq -r '.version' .claude-plugin/plugin.json)
+          codex_version=$(jq -r '.version' .codex-plugin/plugin.json)
+
+          if [[ "$claude_version" != "$VERSION" || "$codex_version" != "$VERSION" ]]; then
+            echo "Failed to update plugin versions to $VERSION." >&2
+            exit 1
+          fi
+
+      - name: Test
+        run: swift test
+
+      - name: Commit and tag release
+        if: steps.release.outputs.tag_exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/plugin.json .codex-plugin/plugin.json
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Release $VERSION"
+          fi
+
+          git tag "$VERSION"
+          git push --atomic origin HEAD:main "refs/tags/$VERSION"
+
+      - name: Create GitHub Release
+        run: gh release create "$VERSION" --verify-tag --generate-notes --title "$VERSION"
