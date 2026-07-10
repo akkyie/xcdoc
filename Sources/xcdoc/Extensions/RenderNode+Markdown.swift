@@ -24,15 +24,25 @@ extension RenderNode {
         for section in primaryContentSections {
             if let contentSection = section as? ContentRenderSection {
                 md += renderBlockContent(contentSection.content)
+            } else if let declarationsSection = section as? DeclarationsRenderSection {
+                md += renderDeclarations(declarationsSection)
+            } else if let parametersSection = section as? ParametersRenderSection {
+                md += renderParameters(parametersSection)
+            }
+        }
+
+        for section in sections {
+            if let tutorialSections = section as? TutorialSectionsRenderSection {
+                md += renderTutorialSections(tutorialSections)
             }
         }
 
         if !topicSections.isEmpty {
-            md += renderTopics(topicSections, references: references)
+            md += renderTaskGroups(topicSections, heading: "Topics", references: references)
         }
 
         if !seeAlsoSections.isEmpty {
-            md += renderSeeAlso(seeAlsoSections, references: references)
+            md += renderTaskGroups(seeAlsoSections, heading: "See Also", references: references)
         }
 
         if !relationshipSections.isEmpty {
@@ -61,8 +71,8 @@ extension RenderNode {
         return md
     }
 
-    private func renderTopics(_ sections: [TaskGroupRenderSection], references: [String: any RenderReference]) -> String {
-        var md = "## Topics\n\n"
+    private func renderTaskGroups(_ sections: [TaskGroupRenderSection], heading: String, references: [String: any RenderReference]) -> String {
+        var md = "## \(heading)\n\n"
 
         for section in sections {
             if let title = section.title {
@@ -82,22 +92,52 @@ extension RenderNode {
         return md
     }
 
-    private func renderSeeAlso(_ sections: [TaskGroupRenderSection], references: [String: any RenderReference]) -> String {
-        var md = "## See Also\n\n"
+    private func renderDeclarations(_ section: DeclarationsRenderSection) -> String {
+        guard !section.declarations.isEmpty else { return "" }
 
-        for section in sections {
-            if let title = section.title {
-                md += "### \(title)\n\n"
-            }
+        var md = "## Declaration\n\n"
+        for declaration in section.declarations {
+            let code = declaration.tokens.map(\.text).joined()
+            let lang = declaration.languages?.first ?? ""
+            md += "```\(lang)\n\(code)\n```\n\n"
+        }
+        return md
+    }
 
-            for identifier in section.identifiers {
-                if let ref = references[identifier] as? TopicRenderReference {
-                    md += "- [\(ref.title)](\(ref.url))\n"
-                } else {
-                    md += "- \(identifier)\n"
+    private func renderParameters(_ section: ParametersRenderSection) -> String {
+        guard !section.parameters.isEmpty else { return "" }
+
+        var md = "## Parameters\n\n"
+        for parameter in section.parameters {
+            md += "**\(parameter.name)**\n"
+            let content = renderBlockContent(parameter.content)
+            md += ": \(content.trimmingCharacters(in: .whitespacesAndNewlines))\n\n"
+        }
+        return md
+    }
+
+    private func renderTutorialSections(_ section: TutorialSectionsRenderSection) -> String {
+        var md = ""
+
+        for task in section.tasks {
+            md += "## \(task.title)\n\n"
+
+            for layout in task.contentSection {
+                switch layout {
+                case .fullWidth(let content):
+                    md += renderBlockContent(content)
+                case .contentAndMedia(let content):
+                    md += renderBlockContent(content.content)
+                case .columns(let columns):
+                    for column in columns {
+                        md += renderBlockContent(column.content)
+                    }
+                @unknown default:
+                    break
                 }
             }
-            md += "\n"
+
+            md += renderBlockContent(task.stepsSection)
         }
 
         return md
@@ -164,7 +204,9 @@ extension RenderNode {
             return md + "\n"
         case .video(let video):
             return "![](\(video.identifier.identifier))\n\n"
-        case .step, .endpointExample, .dictionaryExample, .tabNavigator, ._nonfrozenEnum_useDefaultCase:
+        case .step(let step):
+            return renderStep(step)
+        case .endpointExample, .dictionaryExample, .tabNavigator, ._nonfrozenEnum_useDefaultCase:
             return ""
         }
     }
@@ -189,6 +231,21 @@ extension RenderNode {
         return md + "\n"
     }
 
+    private func renderStep(_ step: RenderBlockContent.TutorialStep) -> String {
+        var md = renderBlockContent(step.content)
+
+        if !step.caption.isEmpty {
+            md += renderBlockContent(step.caption)
+        }
+
+        if let code = step.code, let file = references[code.identifier] as? FileReference {
+            let content = file.content.joined(separator: "\n")
+            md += "```\(file.syntax)\n\(content)\n```\n\n"
+        }
+
+        return md
+    }
+
     private func renderTermList(_ items: [RenderBlockContent.TermListItem]) -> String {
         var md = ""
         for item in items {
@@ -203,6 +260,15 @@ extension RenderNode {
     private func renderTable(_ table: RenderBlockContent.Table) -> String {
         var md = ""
         let header = table.header == .both || table.header == .row
+
+        // GFM requires a header/separator row even when the table has none.
+        // `.column` headers aren't expressible in GFM either, so they fall
+        // back to the same empty-header treatment as `.none`.
+        if !header, let columnCount = table.rows.first?.cells.count {
+            let emptyCells = Array(repeating: "", count: columnCount)
+            md += "| " + emptyCells.joined(separator: " | ") + " |\n"
+            md += "|" + emptyCells.map { _ in " --- " }.joined(separator: "|") + "|\n"
+        }
 
         for (rowIndex, row) in table.rows.enumerated() {
             let cells = row.cells.map { cell in
