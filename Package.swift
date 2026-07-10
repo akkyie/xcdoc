@@ -13,6 +13,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "0.2.1"),
         .package(url: "https://github.com/swiftlang/swift-docc", branch: "main"),
+        .package(url: "https://github.com/swiftlang/swift-lmdb.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
@@ -22,6 +23,7 @@ let package = Package(
                 .product(name: "HeapModule", package: "swift-collections"),
                 .product(name: "Subprocess", package: "swift-subprocess"),
                 .product(name: "SwiftDocC", package: "swift-docc"),
+                .product(name: "CLMDB", package: "swift-lmdb"),
             ]
         ),
         .testTarget(
