@@ -173,6 +173,13 @@ final class PathSearchIndex {
 }
 
 private struct PathResultCollector {
+    /// Early-termination factor for overly broad queries: scanning stops once
+    /// `limit * overflowFactor` overflow matches are counted. That is enough to
+    /// report a meaningful "and N more results" number, while capping scan cost;
+    /// beyond it, additional matches no longer change what's displayed
+    /// meaningfully, so results are flagged truncated instead.
+    private static let overflowFactor = 5000
+
     private let limit: Int
     private let maxMatches: Int
 
@@ -184,7 +191,7 @@ private struct PathResultCollector {
 
     init(limit: Int) {
         self.limit = limit
-        self.maxMatches = limit * 5000
+        self.maxMatches = limit * Self.overflowFactor
         self.heap = Heap(minimumCapacity: limit)
     }
 
