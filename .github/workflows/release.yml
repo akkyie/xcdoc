@@ -116,6 +116,35 @@ jobs:
       - name: Test
         run: swift test
 
+      - name: Import signing certificate
+        env:
+          P12_DATA: ${{ secrets.P12_DATA }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          certificate_path="$RUNNER_TEMP/certificate.p12"
+          keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$P12_DATA" | base64 --decode > "$certificate_path"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+
+          security import "$certificate_path" \
+            -P "$P12_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$keychain_path"
+
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+
+          security list-keychain -d user -s "$keychain_path"
+
       - parallel:
           - name: Build arm64 release binary
             shell: bash
@@ -136,6 +165,8 @@ jobs:
                 --scratch-path "$RUNNER_TEMP/build-x86_64"
 
       - name: Create artifact bundle
+        env:
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -158,6 +189,16 @@ jobs:
           mkdir -p "$(dirname "$bundled_arm64_binary_path")" "$(dirname "$bundled_x86_64_binary_path")"
           cp "$arm64_binary_path" "$bundled_arm64_binary_path"
           cp "$x86_64_binary_path" "$bundled_x86_64_binary_path"
+
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" \
+            "$bundled_arm64_binary_path"
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" \
+            "$bundled_x86_64_binary_path"
+
+          codesign --verify --strict --verbose=2 "$bundled_arm64_binary_path"
+          codesign --verify --strict --verbose=2 "$bundled_x86_64_binary_path"
 
           jq -n --arg version "$VERSION" '{
             schemaVersion: "1.0",
@@ -194,6 +235,24 @@ jobs:
           popd >/dev/null
 
           echo "ARTIFACT_BUNDLE=$archive_path" >> "$GITHUB_ENV"
+
+      - name: Notarize artifact bundle
+        env:
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api_key_path="$RUNNER_TEMP/ac_api_key.p8"
+          echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > "$api_key_path"
+
+          xcrun notarytool submit "$ARTIFACT_BUNDLE" \
+            --key "$api_key_path" \
+            --key-id "$APP_STORE_CONNECT_API_KEY_ID" \
+            --issuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
+            --wait
 
       - name: Commit and tag release
         if: steps.release.outputs.tag_exists == 'false'
