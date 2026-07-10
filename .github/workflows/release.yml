@@ -116,6 +116,85 @@ jobs:
       - name: Test
         run: swift test
 
+      - parallel:
+          - name: Build arm64 release binary
+            shell: bash
+            run: |
+              swift build \
+                --configuration release \
+                --product xcdoc \
+                --triple arm64-apple-macosx13.0 \
+                --scratch-path "$RUNNER_TEMP/build-arm64"
+
+          - name: Build x86_64 release binary
+            shell: bash
+            run: |
+              swift build \
+                --configuration release \
+                --product xcdoc \
+                --triple x86_64-apple-macosx13.0 \
+                --scratch-path "$RUNNER_TEMP/build-x86_64"
+
+      - name: Create artifact bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          arm64_binary_path=$(swift build \
+            --configuration release \
+            --triple arm64-apple-macosx13.0 \
+            --scratch-path "$RUNNER_TEMP/build-arm64" \
+            --show-bin-path)/xcdoc
+          x86_64_binary_path=$(swift build \
+            --configuration release \
+            --triple x86_64-apple-macosx13.0 \
+            --scratch-path "$RUNNER_TEMP/build-x86_64" \
+            --show-bin-path)/xcdoc
+          bundle_path="$RUNNER_TEMP/xcdoc.artifactbundle"
+          bundled_arm64_binary_path="$bundle_path/xcdoc-macos-arm64/xcdoc"
+          bundled_x86_64_binary_path="$bundle_path/xcdoc-macos-x86_64/xcdoc"
+          archive_path="$RUNNER_TEMP/xcdoc-$VERSION.artifactbundle.zip"
+
+          mkdir -p "$(dirname "$bundled_arm64_binary_path")" "$(dirname "$bundled_x86_64_binary_path")"
+          cp "$arm64_binary_path" "$bundled_arm64_binary_path"
+          cp "$x86_64_binary_path" "$bundled_x86_64_binary_path"
+
+          jq -n --arg version "$VERSION" '{
+            schemaVersion: "1.0",
+            artifacts: {
+              xcdoc: {
+                type: "executable",
+                version: $version,
+                variants: [
+                  {
+                    path: "xcdoc-macos-arm64/xcdoc",
+                    supportedTriples: ["arm64-apple-macosx"]
+                  },
+                  {
+                    path: "xcdoc-macos-x86_64/xcdoc",
+                    supportedTriples: ["x86_64-apple-macosx"]
+                  }
+                ]
+              }
+            }
+          }' > "$bundle_path/info.json"
+
+          if [[ "$(lipo -archs "$bundled_arm64_binary_path")" != "arm64" ]]; then
+            echo "arm64 artifact bundle binary has an unexpected architecture." >&2
+            exit 1
+          fi
+
+          if [[ "$(lipo -archs "$bundled_x86_64_binary_path")" != "x86_64" ]]; then
+            echo "x86_64 artifact bundle binary has an unexpected architecture." >&2
+            exit 1
+          fi
+
+          pushd "$RUNNER_TEMP" >/dev/null
+          /usr/bin/zip -qry "$archive_path" "$(basename "$bundle_path")"
+          popd >/dev/null
+
+          echo "ARTIFACT_BUNDLE=$archive_path" >> "$GITHUB_ENV"
+
       - name: Commit and tag release
         if: steps.release.outputs.tag_exists == 'false'
         shell: bash
@@ -134,4 +213,4 @@ jobs:
           git push --atomic origin HEAD:main "refs/tags/$VERSION"
 
       - name: Create GitHub Release
-        run: gh release create "$VERSION" --verify-tag --generate-notes --title "$VERSION"
+        run: gh release create "$VERSION" "$ARTIFACT_BUNDLE" --verify-tag --generate-notes --title "$VERSION"
