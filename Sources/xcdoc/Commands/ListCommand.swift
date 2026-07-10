@@ -40,6 +40,7 @@ struct ListCommand: AsyncParsableCommand {
         printChildren(
             children: tree.root.children,
             currentDepth: 0,
+            indentLevel: 0,
             maxDepth: depth,
             pathIndex: pathIndex
         )
@@ -48,14 +49,18 @@ struct ListCommand: AsyncParsableCommand {
     private func printChildren(
         children: [NavigatorTree.Node],
         currentDepth: Int,
+        indentLevel: Int,
         maxDepth: Int,
         pathIndex: PathSearchIndex
     ) {
         guard currentDepth < maxDepth else { return }
 
+        var memberIndentLevel = indentLevel
         for child in children {
             let item = child.item
-            let indent = String(repeating: "  ", count: currentDepth)
+            let isGroupMarker = item.pageType == NavigatorIndex.PageType.groupMarker.rawValue
+            let displayIndentLevel = isGroupMarker ? indentLevel : memberIndentLevel
+            let indent = String(repeating: "  ", count: displayIndentLevel)
             let path = child.id.flatMap { pathIndex.path(for: $0) } ?? ""
             if path.isEmpty {
                 print("\(indent)- \(item.title)")
@@ -63,12 +68,17 @@ struct ListCommand: AsyncParsableCommand {
                 print("\(indent)- \(item.title) \(path)")
             }
 
-            printChildren(
-                children: child.children,
-                currentDepth: currentDepth + 1,
-                maxDepth: maxDepth,
-                pathIndex: pathIndex
-            )
+            if isGroupMarker {
+                memberIndentLevel = indentLevel + 1
+            } else {
+                printChildren(
+                    children: child.children,
+                    currentDepth: currentDepth + 1,
+                    indentLevel: memberIndentLevel + 1,
+                    maxDepth: maxDepth,
+                    pathIndex: pathIndex
+                )
+            }
         }
     }
 }
