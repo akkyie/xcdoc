@@ -7,6 +7,7 @@ Command-line explorer for the documentation included with Xcode. `xcdoc` lets yo
 ## Requirements
 - macOS 13 or later
 - Xcode 15 or later
+  - Xcode 27 confirmed
 
 The Xcode version used by `xcdoc` is determined by `xcode-select -p`.
 You can change it with `xcode-select -s path/to/Xcode.app`, or override it by setting the `DEVELOPER_DIR` environment variable when running a command:
