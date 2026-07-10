@@ -43,7 +43,9 @@ struct Xcdoc: AsyncParsableCommand {
         let developerDir: String
         do {
             let result = try await Subprocess.run(.name("xcode-select"), arguments: ["-p"], output: .string(limit: 1024))
-            if let dir = result.standardOutput?.trimmingCharacters(in: .whitespacesAndNewlines), !dir.isEmpty {
+            if result.terminationStatus.isSuccess,
+                let dir = result.standardOutput?.trimmingCharacters(in: .whitespacesAndNewlines), !dir.isEmpty
+            {
                 developerDir = dir
             } else {
                 developerDir = "/Applications/Xcode.app/Contents/Developer"
@@ -55,7 +57,7 @@ struct Xcdoc: AsyncParsableCommand {
         let developerURL = URL(fileURLWithPath: developerDir)
         let xcodeApp = developerURL.deletingLastPathComponent().deletingLastPathComponent()
 
-        guard FileManager.default.fileExists(atPath: xcodeApp.path) else {
+        guard FileManager.default.fileExists(atPath: xcodeApp.appendingPathComponent("Contents/Info.plist").path) else {
             throw XcdocError.xcodeNotFound(path: xcodeApp.path)
         }
 
