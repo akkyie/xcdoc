@@ -72,32 +72,39 @@ final class CacheDB {
         )
     }
 
+    /// Maximum number of bound parameters per query, kept comfortably under
+    /// SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` limit.
+    private static let maxUUIDsPerQuery = 500
+
     func fetchChunkReferences(uuids: [DocumentationUUID]) throws -> [String: FileChunkReference] {
         guard !uuids.isEmpty else { return [:] }
         try ensureOpen()
         guard let db = db else { return [:] }
 
-        let placeholders = uuids.map { _ in "?" }.joined(separator: ",")
-        let query = "SELECT uuid, data_id, offset, length FROM refs WHERE uuid IN (\(placeholders))"
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
-            throw CacheDBError.queryFailed(query: query)
-        }
-        defer { sqlite3_finalize(stmt) }
-
-        for (index, uuid) in uuids.enumerated() {
-            sqlite3_bind_text(stmt, Int32(index + 1), uuid.rawValue, Int32(uuid.rawValue.utf8.count), sqliteTransient)
-        }
-
         var results: [String: FileChunkReference] = [:]
-        while sqlite3_step(stmt) == SQLITE_ROW {
-            guard let uuidPtr = sqlite3_column_text(stmt, 0) else { continue }
-            let uuid = String(cString: uuidPtr)
-            results[uuid] = FileChunkReference(
-                dataID: Int(sqlite3_column_int(stmt, 1)),
-                offset: Int(sqlite3_column_int(stmt, 2)),
-                length: Int(sqlite3_column_int(stmt, 3))
-            )
+        for start in stride(from: 0, to: uuids.count, by: Self.maxUUIDsPerQuery) {
+            let chunk = uuids[start..<min(start + Self.maxUUIDsPerQuery, uuids.count)]
+            let placeholders = chunk.map { _ in "?" }.joined(separator: ",")
+            let query = "SELECT uuid, data_id, offset, length FROM refs WHERE uuid IN (\(placeholders))"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
+                throw CacheDBError.queryFailed(query: query)
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            for (index, uuid) in chunk.enumerated() {
+                sqlite3_bind_text(stmt, Int32(index + 1), uuid.rawValue, Int32(uuid.rawValue.utf8.count), sqliteTransient)
+            }
+
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let uuidPtr = sqlite3_column_text(stmt, 0) else { continue }
+                let uuid = String(cString: uuidPtr)
+                results[uuid] = FileChunkReference(
+                    dataID: Int(sqlite3_column_int(stmt, 1)),
+                    offset: Int(sqlite3_column_int(stmt, 2)),
+                    length: Int(sqlite3_column_int(stmt, 3))
+                )
+            }
         }
         return results
     }
