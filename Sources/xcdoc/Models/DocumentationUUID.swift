@@ -11,11 +11,18 @@ struct DocumentationUUID: CustomStringConvertible {
 
     init?(rawValue: String) {
         let prefixes = DocumentationLanguage.allCases.map(\.uuidPrefix)
-        guard prefixes.contains(where: { rawValue.hasPrefix($0) }), rawValue.count >= 10 else {
+        guard rawValue.count == 10, let prefix = prefixes.first(where: { rawValue.hasPrefix($0) }) else {
+            return nil
+        }
+        guard rawValue.dropFirst(prefix.count).unicodeScalars.allSatisfy(Self.base64URLAlphabet.contains) else {
             return nil
         }
         self.rawValue = rawValue
     }
+
+    private static let base64URLAlphabet = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    )
 
     init(path: String, language: DocumentationLanguage) {
         let digest = Insecure.SHA1.hash(data: Data(path.utf8))

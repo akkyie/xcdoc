@@ -39,6 +39,10 @@ struct SearchCommand: AsyncParsableCommand {
             throw ValidationError("Cannot specify multiple language filters. Use only one of --swift, --objc, or --other.")
         }
 
+        guard 1 <= limit else {
+            throw ValidationError("Limit must be at least 1.")
+        }
+
         let language: DocumentationLanguage? = if swift {
             .swift
         } else if objc {
