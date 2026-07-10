@@ -31,6 +31,11 @@ cp .build/release/xcdoc /usr/local/bin # or anywhere in the $PATH
 mint install akkyie/xcdoc
 ```
 
+### [mise](https://mise.jdx.dev/)
+```bash
+mise use -g spm:akkyie/xcdoc
+```
+
 ## Coding Agent Plugin
 
 This repository doubles as a plugin that teaches coding agents how to use `xcdoc`. The `xcdoc` binary itself must be installed separately (see above); the plugin only ships the instructions.
