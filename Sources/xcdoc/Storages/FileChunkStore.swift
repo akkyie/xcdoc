@@ -69,7 +69,9 @@ actor FileChunkStore {
     }
 
     private func extractRenderNode(from data: Data, ref: FileChunkReference, uuid: String?) throws -> RenderNode {
-        guard ref.offset + ref.length <= data.count else {
+        let start = data.startIndex + ref.offset
+        let end = start + ref.length
+        guard end <= data.endIndex else {
             throw FileChunkStoreError.offsetOutOfBounds(
                 dataID: ref.dataID,
                 offset: ref.offset,
@@ -77,7 +79,7 @@ actor FileChunkStore {
                 actual: data.count
             )
         }
-        let slice = data[ref.offset ..< ref.offset + ref.length]
+        let slice = data[start ..< end]
         do {
             return try JSONDecoder().decode(RenderNode.self, from: Data(slice))
         } catch {
