@@ -17,7 +17,7 @@ struct Xcdoc: AsyncParsableCommand {
               Show documentation:
                 $ xcdoc show /documentation/swiftui/view
                 $ xcdoc show "doc://com.apple.uikit/documentation/UIKit/UIView"
-                $ xcdoc show xcdoc show "/documentation/swift/string/+(_:_:)-9fm57"
+                $ xcdoc show "/documentation/swift/string/+(_:_:)-9fm57"
 
               Filter by language:
                 $ xcdoc search NSView --objc
