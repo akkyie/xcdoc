@@ -2,7 +2,7 @@
 
 Command-line explorer for the documentation included with Xcode. `xcdoc` lets you list the documentation hierarchy, search symbols instantly, and render any article as Markdown, all without launching Xcode.
 
-`xcdoc` works fully offline and read-only on the Xcode installed on your machine.
+`xcdoc` works **fully offline** and read-only on the Xcode installed on your machine.
 
 ## Requirements
 - macOS 13 or later
